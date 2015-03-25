@@ -197,7 +197,8 @@
 
             dataLayer.eachLayer(function(layer) {
                 layer.setStyle({
-                    fillColor: getColor(layer.feature.properties[attribute]/layer.feature.properties[norm], breaks)
+                    fillColor: getColor(layer.feature.properties[attribute]/layer.feature.properties[norm], breaks),
+                    fillOpacity: 0.7
                 });
             });
 
