@@ -2,17 +2,14 @@
 <html>
 
 <head>
-
     <meta charset=utf-8 />
-    <title>Kentucky Housing Choropleth</title>
+    <title>Kentucky Housing</title>
     <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
-    <script src="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.js"></script>
-    <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.css" />
-    <link href='http://fonts.googleapis.com/css?family=Lato' rel='stylesheet' type='text/css'>
     <script src="https://code.jquery.com/jquery-1.11.2.min.js"></script>
     <script src="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.js"></script>
     <script src="simple_statistics.js"></script>
-
+    <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.css" />
+    <link href='http://fonts.googleapis.com/css?family=Lato' rel='stylesheet' type='text/css'>
     <style>
         body {
             margin: 0;
@@ -40,6 +37,9 @@
             background: whitesmoke;
             border: 2px solid #dddedf;
         }
+        #ui-controls {
+            display: none;
+        }
         footer {
             padding: 6px 10%;
             width: 80%;
@@ -54,6 +54,7 @@
             background: rgba(255,255,255,0.8);
             box-shadow: 0 0 15px rgba(0,0,0,0.2);
             border-radius: 5px;
+            width: 165px;
         }
         .legend h3 {
             font-size: 1.1em;
@@ -70,6 +71,21 @@
             height: 20px;
             float: left;
             margin-right: 10px;
+        }
+        .leaflet-popup-content {
+            max-width: 160px;   
+        }
+        .info {
+            padding: 6px 8px;
+            font-size: 1em;
+            background: rgba(255,255,255,0.8);
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+            border-radius: 5px;
+            text-align: left;   
+            width: 270px;
+        }
+        .info h3 {
+            margin: 0;   
         }
         .author-info {
             font-size: 90%;
@@ -96,34 +112,51 @@
 
 <body>
     <header>
-        <h1>Kentucky Housing Choropleth</h1>
-        <h2>Showing Occupied Properties</h2>
-    </header>
+        <h1>Kentucky Housing Choropleth Map</h1>
+        <h2>Showing Vacant Properties</h2>
+    </header>    
+
+    <div id='ui-controls'>
+        <label>Choose a data attribute:<br>
+            <select name="vacant">
+                <option value="VACANT" selected>Vacant Properties</option>
+                <option value="VACANT_FOR">For Rent</option> 
+                <option value="VACANT_FO2">For Sale</option>
+                <option value="VACANT_SEA">Seasonal Use</option>
+            </select>
+        </label>
+    </div>
 
     <div id='map'></div>
 
     <footer>
         <p class='author-info'>Map authored by Daniel Cockayne</p>
         <h3>About This Map</h3>
-        <p>This is a choropleth map showing the number of occupied properties (rented or owned) expressed as a proportion of the total properties per county in Kentucky.</p>
-        <p>Click on a county to see its name, the number of occupied and total properties, and the percentage of homes occupied in that county. In each county, the darker the blue, the higher the proportion of occupied properties in the county.</p>
+        <p>This is a choropleth map showing the number of vacant properties expressed as a proportion of the total properties per county in Kentucky.</p>
+        <p>Use the drop-down menu to select different attributes related to vacant properties. Mouse-over on a county to see its name, statistics about vacant properties, and the percentage of vacant properties in that county. In each county, the darker the blue, the higher the proportion of occupied properties in the county.</p>
         <h3>Data Sources</h3>
-        <p>The code for this map can be found on <a href="https://github.com/insistondoubt/geo409-tasks/blob/master/task-i/index.html">Github</a>.
+        <p>The code for this map can be found on <a href="https://github.com/insistondoubt/geo409-tasks/blob/master/task-j/index.html">Github</a>.
         </p>
     </footer>
 
     <script>
+
+        // The following defines the initial style options for the map object called on like 157.
         
         var options = {
-            center: [37.8, -85.8],
+            center: [38.2, -85.8],
             zoom: 7,
             minZoom: 7,
             maxZoom: 7,
             dragging: false,
             zoomControl: false
         }
-    
+
+        // Define a global variable creating a map object in leaflet (9). Still need to add that map object (189)!
+
         var map = L.map('map', options);
+
+        // Defines the tile set - mainly for aesthetic purposes - I thought this looked better than the non-integer zoom levels.
 
         var tiles = L.tileLayer('http://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="http://cartodb.com/attributions">CartoDB</a>',
@@ -131,14 +164,128 @@
             minZoom: 0,
             maxZoom: 18
         });
-        
+
+        // Add these tiles to the map!
+
         map.addLayer(tiles);
 
+        // Global variable defining the default "attribute" and "norm" for various purposes (189, ).
+        
         var dataLayer,
-            attribute = "OCCUPIED",
+            attribute = "VACANT",
             norm = "TOTAL";
 
+        // Global variable defining the titles in the legend as they change.
+
+        var labels = {
+            "VACANT": "Vacant Properties",
+            "VACANT_FOR": "Vacant Properties for Rent",
+            "VACANT_FO2": "Vacant Properties for Sale",
+            "VACANT_SEA": "Seasonally Used Properties" 
+        }
+
+        // jQuery (8) function adding the map object (157), and calling the ui, drawLegend, drawMap, and drawInfo functions.
+        
+        $.getJSON("ky_counties_housing.json", function(data) {
+            
+            dataLayer = L.geoJson(data, {
+                style: function(feature) {
+                    return {
+                        color: '#dddddd',
+                        weight: 2,
+                        fillOpacity: 1,
+                        fillColor: '#1f78b4'
+                    };
+                }
+
+            }).addTo(map);
+            
+            ui();
+
+            drawLegend();
+
+            drawMap();
+            
+            drawInfo();
+
+        });
+
+        // JQuery function that does something (?) revisit this.
+
+        $('select[name="vacant"]').change(function() {
+
+            attribute = $(this).val();
+
+            drawMap();
+
+        });
+
+        // Defining the drawMap function (called above at 189). Defines the local variable 'breaks' that calls the getClassBreaks() function below (270) - this defines the color of each county depending on the attribute selected by the user. Changes the stroke of map when the user hovers the cursor over a county, and changes it back to default again. Shows and hides the info box depending on where the cursor is. Calls the updateLegend() function, with the locally defined variable 'breaks.'
+        
+        function drawMap() {
+            
+            var breaks = getClassBreaks();
+
+            dataLayer.eachLayer(function(layer) {
+                
+                var props = layer.feature.properties;
+                
+                layer.setStyle({
+                    fillColor: getColor(props[attribute]/
+                                        props[norm], breaks),
+                    fillOpacity: 0.8
+                });
+
+                layer.on('mouseover', function() {
+                    updateInfo(this);
+
+                    layer.setStyle({
+                        color: 'yellow'
+                    });
+                    
+                });
+
+                layer.on('mouseout', function() {
+                    layer.setStyle({
+                        color: '#dddddd'
+                    });
+                });
+
+            });
+
+            dataLayer.on('mouseover', function() {
+                $(".info").show();
+            });
+
+            dataLayer.on('mouseout', function() {
+                $(".info").hide();    
+            });
+            
+            updateLegend(breaks);
+
+        }
+
+        // Defines the getClassBreaks() function. This defines the categories represented in the map between different shades of blue that creates the choropleth effect of the map. Uses the simple statistic JavaScript library (10) to define the jenks model.
+        
+        function getClassBreaks() {
+            
+            var values = [];
+            
+            dataLayer.eachLayer(function(layer) {
+                var value = layer.feature.properties[attribute]/layer.feature.properties[norm];
+                values.push(value);   
+            }); 
+            
+            var breaks = ss.jenks(values, 5);
+
+            return breaks;
+            
+        }
+
+        // Defines the getColor() function. Defines the color of each category depending on which 'break' they have been sorted into. I'm a little confused about this - the reason that the breaks variable can be called in this function, even though it is only defined locally in (270) is because of the return breaks; line at 281?
+        
         function getColor(d, breaks) {
+
             if(d <= breaks[1]) {
                 return '#f1eef6';
             } else if(d <= breaks[2]) {
@@ -150,86 +297,99 @@
             } else if(d <= breaks[5]) {
                 return '#045a8d'
             }
+
         }
 
-        function getClassBreaks() {
-
-        var values = [];
+        // Defines the drawLegend() function, called above at 189. 
         
-        dataLayer.eachLayer(function(layer) {
-            var value = layer.feature.properties[attribute]/layer.feature.properties[norm];
-            values.push(value);
-
-        }); 
-    
-        var breaks = ss.jenks(values, 5);
-        return breaks;
-
-        }
-
-        $.getJSON("ky_counties_housing.json", function(data) {
+        function drawLegend() {
             
-            dataLayer = L.geoJson(data, {
-                style: function(feature) {
-                    return {
-                        color: '#dddddd',
-                        weight: 1,
-                        fillOpacity: 1,
-                        fillColor: '#1f78b4'
-                    };
-                },
-                onEachFeature: function (feature, layer) {
-                    var countyName = layer.feature.properties.NAME;
-                    var occupiedHomes = layer.feature.properties.OCCUPIED;
-                    var totalHomes = layer.feature.properties.TOTAL;
-                    var proportionHomes = occupiedHomes/totalHomes*100;
-
-                    layer.bindPopup("<b>"+countyName.toLocaleString()+" County</b>"+"<br>Occupied Properties: "+occupiedHomes.toLocaleString()+"<br>Total Properties: "+totalHomes+"<br>Proportion: "+Math.round(proportionHomes)+"% of homes are occupied.");
-                }          
-            }).addTo(map);
-            
-            drawMap();
-
-        });
-
-        function drawMap() {
-            var breaks = getClassBreaks();
-
-            dataLayer.eachLayer(function(layer) {
-                layer.setStyle({
-                    fillColor: getColor(layer.feature.properties[attribute]/layer.feature.properties[norm], breaks),
-                    fillOpacity: 0.8
-                });
-            });
-
-            drawLegend(breaks);
-
-        }
-
-        function drawLegend(breaks){
-
             var legend = L.control({position: 'topleft'});
+
             legend.onAdd = function (map) {
-
+                
                 var div = L.DomUtil.create('div', 'legend');
-                div.innerHTML = "<h3>" + attribute + " per " + norm + "</h3><ul>"; 
-
-                for (var i = 0; i < breaks.length-1; i++) {
-                    var color = getColor(breaks[i + 1], breaks);
-
-                    div.innerHTML +=
-                        '<li><span style="background:' + color + '"></span> ' +
-                        (breaks[i]*100).toLocaleString() + '%&mdash; ' + 
-                        (breaks[i + 1]*100).toLocaleString() +'%</li>';
-                }
-
-                div.innerHTML += "</ul>"
 
                 return div;
+                    
             };
 
             legend.addTo(map);
-            
+
+        }
+
+        // Defines the ui() function, called above at 189.
+
+        function ui() {
+
+            var dataView = L.control({position: 'topleft'});
+
+            dataView.onAdd = function(map) {
+
+                var controls = L.DomUtil.get('ui-controls');
+                return controls;
+            }
+
+        dataView.addTo(map);
+
+        document.getElementById("ui-controls").style.display = "initial";
+
+        }
+
+        // Defines the updateLegend() function. 
+
+        function updateLegend(breaks) {
+
+            var legend = $('.legend').html("<h3>" + labels[attribute] + "</h3><ul>"); 
+
+            for (var i = 0; i < breaks.length-1; i++) {
+
+                var color = getColor(breaks[i + 1], breaks);
+
+                legend.append('<li><span style="background:' + color + '"></span> ' +
+                    (breaks[i]*100).toLocaleString() + '% &mdash; ' + 
+                    (breaks[i + 1]*100).toLocaleString() + '%</li>');
+
+                }
+
+            legend.append("</ul>");
+
+        }
+
+        // Defines the drawInfo() function, called at 189. 
+
+        function drawInfo() {
+
+            var info = L.control({position: 'topright'});
+
+            info.onAdd = function(map) {
+
+                var div = L.DomUtil.create('div', 'info');
+
+                return div;  
+
+            }
+
+            info.addTo(map);
+
+            $(".info").hide();
+
+        }
+
+        // Defines the updateInfo() function, called in the drawMap() function at 225. This defines the content of the info box to the right of the map. 
+
+        function updateInfo(layer) {
+
+            var props = layer.feature.properties;
+
+            var html = "<h3>"+props['NAME']+" County</h3>"+
+                    "Total Vacant Properties: <b>"+ props["VACANT"]+"</b> ("+(props["VACANT"]/props["TOTAL"]*100).toLocaleString()+"%)<br>"+
+                    "Total Properties for Rent: <b>"+ props["VACANT_FOR"]+"</b> ("+(props["VACANT_FOR"]/props["TOTAL"]*100).toLocaleString()+"%)<br>"+
+                    "Total Properties for Sale: <b>"+ props["VACANT_FO2"]+"</b> ("+(props["VACANT_FO2"]/props["TOTAL"]*100).toLocaleString()+"%)<br>"+
+                    "Total Seasonally Used Properties: <b>"+ props["VACANT_SEA"]+"</b>  ("+(props["VACANT_SEA"]/props["TOTAL"]*100).toLocaleString()+"%)"
+
+            $(".info").html(html);
+
         }
 
     </script>
