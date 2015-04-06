@@ -189,13 +189,16 @@
         $.getJSON("ky_counties_housing.json", function(data) {
             
             dataLayer = L.geoJson(data, {
+
                 style: function(feature) {
+
                     return {
                         color: '#dddddd',
                         weight: 2,
                         fillOpacity: 1,
                         fillColor: '#1f78b4'
                     };
+
                 }
 
             }).addTo(map);
@@ -207,6 +210,8 @@
             drawMap();
             
             drawInfo();
+
+            console.log(data);
 
         });
 
